@@ -26,22 +26,33 @@ function createUrl(arrayUrl){
     return url
 }
 
-async function readWeb(request, response, next){
-    await pdfApi.callPdf('pepito', '1.00', response)
-    /*
-    //initialUrl = "https://lectortmo.com/library/manhwa/73184/la-tirana-quiere-tener-una-buena-vida"
-    const url = request.body.input_link //! change
-    const browser = await firefox.launch({headless: true})
-    const page = await browser.newPage()
-    await page.goto("https://lectortmo.com/library/manga/70250/fuguushoku-ningyou-tsukai-no-nariagari-bishoujo-ningyou-to-saikyou-made-saikou-soku-de-nobori-tsumeru")
-    await delay(TIMEOUT)
-    await getLinks(page,response)
-    await browser.close()
-    console.log('Success ;D')
-    response.status(200).send('Success!')*/
+async function readWeb(request, response){
+    try {
+        const url = request.body.input_link //! change
+        const init = request.body.number_init
+        const end = request.body.number_end
+
+        if (Number(end) >= Number(init)){
+            const browser = await firefox.launch({headless: true})
+            const page = await browser.newPage()
+            await page.goto(url)
+            await delay(TIMEOUT)
+            await getLinks(page,response, Number(init), Number(end))
+            await browser.close()
+            console.log('Success ;D ')
+            return response.status(200).send('Success! <button onclick="history.back()">Try Again!</button>')
+        }else{
+            return response.status(400).send('Error, End must be greater than Init <button onclick="history.back()">Try Again!</button>')
+        }
+
+    } catch (error) {
+        console.log('There was an error! Try again ',error)
+        fs.rmSync('output',{ recursive: true, force: true})
+        return response.status(500).send('There was an error Try Again! <button onclick="history.back()">Try Again!</button>')
+    }
 }
 
-async function getLinks(page, response){
+async function getLinks(page, response, init, end){
 
     console.log('get links of each chapter...')
     const urls = []
@@ -53,70 +64,97 @@ async function getLinks(page, response){
     }
     //querySelectorAll
     const list = await page.locator('.list-group ul > li > div > div > a')
-    // get the hrefs
     for (let i = 0; i < await list.count(); i++) {
         let url = await list.nth(i).getAttribute('href')
         urls.push(url)
     }
 
     // get the links
-    await download(page, urls, response)
+    await download(page, urls, response, init , end)
     
 }
 
 
-async function download(page, urls, response){
+async function download(page, urls, response, init, end){
     let listNumber = []
     let lastNumber
 
+    let numOfProcess = (end - init) + 1
+    let countProcess = 0
+
     console.log('Prepare for download by chapter ...')
+   // console.log(urls)
     for (let i = urls.length - 1; i >= 0; i--) {
+        console.log('Goto ',urls[i])
+        console.log('----------')
+        await page.waitForLoadState()
         await page.goto(urls[i])
-        await delay(TIMEOUT)
-        let actualUrl = await page.url()
-        let newUrl = createUrl(actualUrl)
-        
-        // redirect to a new page
-        console.log('Redirect to paginate state ...')
-        await page.goto(newUrl)
+        // get the name of the url
+        let nameUrl = await page.url()
+        //get the domain
+        let domain = nameUrl.split('/')[2]
+        console.log('Name domain', domain)
+
+        if (domain != "lectortmo.com"){
+            console.log('Seek another doman ***')
+            continue
+        }
+
+        console.log(urls[i])
         await delay(TIMEOUT)
         const titleText = await page.innerText('.container-fluid > div > div > h2')
         const name = await page.innerText('.container-fluid > div > div > h1')
         let titleNumber = titleText.split(' ')[1]
 
-        const listSelect = await page.locator('select#viewer-pages-select > option')
-       
-        for (let i = 0; i < await listSelect.count(); i++) {
-            let value = await listSelect.nth(i).getAttribute('value')
-            if (!listNumber.some(v => v == value )){
-                listNumber.push(value)
-            }
-        }
+        console.log('Number title', Number(titleNumber))
 
-        console.log('Number of pages to download ',listNumber.length)
-
-        if(!fs.existsSync('output')){
-            console.log('Creating Output ...')
-            mkdirp.sync('output')
-            console.log('output created ...')
-        }
-
-        // check if is made
-        if(lastNumber != titleNumber){
-            for(let i=0; i<listNumber.length; i++){
-                await page.selectOption('[id="viewer-pages-select"]', listNumber[i])
-                await page.locator('.viewer-image').screenshot({path:`output/picture${i}.jpg`})
-                console.log('Downloaded picture ',i)
+        if(Number(titleNumber) >= init && Number(titleNumber) <= end){
+            // check if is made
+            if(lastNumber != titleNumber){
+                countProcess ++
+                let actualUrl = await page.url()
+                let newUrl = createUrl(actualUrl)
+                
+                // redirect to a new page
+                console.log('Redirect to paginate state ...')
+                await page.waitForLoadState()
+                await page.goto(newUrl)
                 await delay(TIMEOUT)
+    
+                const listSelect = await page.locator('select#viewer-pages-select > option')
+                for (let i = 0; i < await listSelect.count(); i++) {
+                    let value = await listSelect.nth(i).getAttribute('value')
+                    if (!listNumber.some(v => v == value )){
+                        listNumber.push(value)
+                    }
+                }
+    
+                console.log('Number of pages to download ',listNumber.length)
+    
+                if(!fs.existsSync('output')){
+                    console.log('Creating Output ...')
+                    mkdirp.sync('output')
+                    console.log('output created ...')
+                }
+
+                for(let i=0; i<listNumber.length; i++){
+                    await page.selectOption('[id="viewer-pages-select"]', listNumber[i])
+                    await page.locator('.viewer-image').screenshot({path:`output/picture${i}.jpg`})
+                    console.log('Downloaded picture ',i)
+                    await delay(TIMEOUT)
+                }
+                // create pdf with name and number of chapter
+                await pdfApi.callPdf(name, titleNumber, response)
+                //await page.goto(initialUrl, {timeout: TIMEOUT})
+            }
+            lastNumber = titleNumber
+
+            if (countProcess >= numOfProcess){
+                console.log(`Only ${numOfProcess} Process`)
                 break
             }
-            //await page.goto(initialUrl, {timeout: TIMEOUT})
         }
-        lastNumber = titleNumber
-        // create pdf with name and number of chapter
-        await ilovepdf.callPdf(name, number, response)
-
-        break
+        //break
     }
 }
 

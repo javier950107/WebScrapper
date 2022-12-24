@@ -2,8 +2,6 @@ require('dotenv').config()
 
 const express = require('express')
 const bp = require('body-parser')
-
-
 const routes = require('./src/routes')
 
 const app = express()
