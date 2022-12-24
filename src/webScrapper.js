@@ -27,7 +27,7 @@ function createUrl(arrayUrl){
 }
 
 async function readWeb(request, response, next){
-    await pdfApi.callPdf()
+    await pdfApi.callPdf('pepito', '1.00', response)
     /*
     //initialUrl = "https://lectortmo.com/library/manhwa/73184/la-tirana-quiere-tener-una-buena-vida"
     const url = request.body.input_link //! change
@@ -35,13 +35,13 @@ async function readWeb(request, response, next){
     const page = await browser.newPage()
     await page.goto("https://lectortmo.com/library/manga/70250/fuguushoku-ningyou-tsukai-no-nariagari-bishoujo-ningyou-to-saikyou-made-saikou-soku-de-nobori-tsumeru")
     await delay(TIMEOUT)
-    await getLinks(page)
+    await getLinks(page,response)
     await browser.close()
     console.log('Success ;D')
     response.status(200).send('Success!')*/
 }
 
-async function getLinks(page){
+async function getLinks(page, response){
 
     console.log('get links of each chapter...')
     const urls = []
@@ -60,12 +60,12 @@ async function getLinks(page){
     }
 
     // get the links
-    await download(page, urls)
+    await download(page, urls, response)
     
 }
 
 
-async function download(page, urls){
+async function download(page, urls, response){
     let listNumber = []
     let lastNumber
 
@@ -81,6 +81,7 @@ async function download(page, urls){
         await page.goto(newUrl)
         await delay(TIMEOUT)
         const titleText = await page.innerText('.container-fluid > div > div > h2')
+        const name = await page.innerText('.container-fluid > div > div > h1')
         let titleNumber = titleText.split(' ')[1]
 
         const listSelect = await page.locator('select#viewer-pages-select > option')
@@ -112,8 +113,8 @@ async function download(page, urls){
             //await page.goto(initialUrl, {timeout: TIMEOUT})
         }
         lastNumber = titleNumber
-        // create pdf
-        //await ilovepdf.callPdf()
+        // create pdf with name and number of chapter
+        await ilovepdf.callPdf(name, number, response)
 
         break
     }

@@ -1,9 +1,10 @@
 const ILovePDFApi = require('@ilovepdf/ilovepdf-nodejs');
 const ILovePDFFile = require('@ilovepdf/ilovepdf-nodejs/ILovePDFFile');
-const fs = require('fs')
+const fs = require('fs');
+const http = require('http')
 const path = require('path')
 
-async function callPdf(){
+async function callPdf(name, number, response){
     let namesJpg =[]
 
     try {
@@ -19,10 +20,23 @@ async function callPdf(){
             await task.addFile(file)
         }
         
-        await task.process({margin: 0, pagesize: 'A4'});
-        const data = await task.download();
-        fs.writeFileSync('output/example.pdf', data)
+        await task.process({margin: 0, pagesize: 'A4'})
+        const data = await task.download()
+        // path of pdf
+        let pathPdf = `output/${name} - ${number} Manga.pdf`
+        await fs.writeFile(pathPdf, data)
+        response.download(pathPdf)
+
         console.log('Done PDF!')
+
+        await fs.rm('output',{ recursive: true, force: true})
+        /*fs.readdir('output', (err, files)=>{
+            if (err) throw err
+
+            for (const file of files){
+                fs.unlink(path.join('output', file))
+            }
+        })*/
 
     } catch (error) {
         console.log(error)
