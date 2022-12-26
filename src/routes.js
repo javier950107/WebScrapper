@@ -9,7 +9,7 @@ api.get('/', (req, res)=>{
     res.sendFile(path.join(__dirname, '../index.html'))
 })
 
-api.post('/', webScrapper.readWeb)
+api.post('/', webScrapper.fastVersion)
 
 
 module.exports = api

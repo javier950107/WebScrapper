@@ -26,6 +26,81 @@ function createUrl(arrayUrl){
     return url
 }
 
+/**
+ * This is the soft version to download
+ */
+async function fastVersion(request, response){
+    try {
+        const url = request.body.input_link //! change
+
+        const browser = await firefox.launch({headless: true})
+        const page = await browser.newPage()
+        await page.goto(url)
+        await downloadByChapter(page)
+        await delay(TIMEOUT)
+        await browser.close()
+        console.log('Success ;D ')
+        return response.status(200).send('Success! <button onclick="history.back()">Try Again!</button>')
+        
+    } catch (error) {
+        console.log('There was an error! Try again ',error)
+        fs.rmSync('output',{ recursive: true, force: true})
+        return response.status(500).send('There was an error Try Again! <button onclick="history.back()">Try Again!</button>')
+    }
+}
+
+/**
+ * This function download a chapter by link
+ */
+async function downloadByChapter(page){
+    let listNumber = []
+    let actualUrl = await page.url()
+    const splitUrl = actualUrl.split('/')
+    const lastValueUrl = splitUrl[ splitUrl.length - 1 ]
+    
+    // redirect to a new page
+    if (lastValueUrl == "cascade"){
+        console.log('Redirect to paginate state ...')
+        let newUrl = createUrl(actualUrl)
+        await page.waitForLoadState()
+        await page.goto(newUrl)
+    }
+
+    await delay(TIMEOUT)
+    
+    const titleText = await page.innerText('.container-fluid > div > div > h2')
+    const name = await page.innerText('.container-fluid > div > div > h1')
+    const titleNumber = titleText.split(' ')[1]
+    
+    const listSelect = await page.locator('select#viewer-pages-select > option')
+
+    // name of imgs to download
+    for (let i = 0; i < await listSelect.count(); i++) {            
+        let value = await listSelect.nth(i).getAttribute('value')        
+        if (!listNumber.some(v => v == value )){                    
+            listNumber.push(value)
+        }
+    }
+    console.log('Number of pages to download ',listNumber.length)
+    // check if exists the output
+    if(!fs.existsSync('output')){
+        console.log('Creating Output ...')
+        mkdirp.sync('output')
+        console.log('output created ...')
+    }
+
+    for(let i=0; i<listNumber.length; i++){
+        await page.selectOption('[id="viewer-pages-select"]', listNumber[i])
+        await page.locator('.viewer-image').screenshot({path:`output/picture${i}.jpg`})
+        console.log('Downloaded picture ',i)
+        await delay(TIMEOUT)
+    }
+    
+    // create pdf with name and number of chapter
+    await pdfApi.callPdf(name, titleNumber)
+    //await page.goto(initialUrl, {timeout: TIMEOUT})
+}
+
 async function readWeb(request, response){
     try {
         const url = request.body.input_link //! change
@@ -144,7 +219,7 @@ async function download(page, urls, response, init, end){
                     await delay(TIMEOUT)
                 }
                 // create pdf with name and number of chapter
-                await pdfApi.callPdf(name, titleNumber, response)
+                await pdfApi.callPdf(name, titleNumber)
                 //await page.goto(initialUrl, {timeout: TIMEOUT})
             }
             lastNumber = titleNumber
@@ -158,4 +233,4 @@ async function download(page, urls, response, init, end){
     }
 }
 
-module.exports = {readWeb}
+module.exports = {readWeb, fastVersion}

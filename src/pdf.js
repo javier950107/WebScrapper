@@ -9,7 +9,7 @@ function delay(time) {
     return new Promise(resolve => setTimeout(resolve, time));
 }
 
-async function callPdf(name, number, response){
+async function callPdf(name, number){
     let namesJpg =[]
 
     // create folder download
@@ -31,7 +31,7 @@ async function callPdf(name, number, response){
         await task.addFile(file)
     }
         
-    await task.process({margin: 0, pagesize: 'A4'})
+    await task.process({margin: 0})
     const data = await task.download()
     // path of pdf
     let pathPdf = `download/${name} - ${number} Manga.pdf`
