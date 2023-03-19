@@ -36,7 +36,7 @@ async function callPdf(name, number){
     // path of pdf
     let pathPdf = `download/${name} - ${number} Manga.pdf`
     fs.writeFileSync(pathPdf, data)
-    fs.rmSync('output',{ recursive: true, force: true})
+    //fs.rmSync('output',{ recursive: true, force: true})
     // create folder pdf
     
     /*response.download(pathPdf, (err)=>{

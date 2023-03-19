@@ -91,13 +91,14 @@ async function downloadByChapter(page){
 
     for(let i=0; i<listNumber.length; i++){
         await page.selectOption('[id="viewer-pages-select"]', listNumber[i])
-        await page.locator('.viewer-image').screenshot({path:`output/picture${i}.jpg`})
-        console.log('Downloaded picture ',i)
         await delay(TIMEOUT)
+        await page.locator('.viewer-image').screenshot({path:`output/${name}${titleNumber}_${i}.jpg`})
+        console.log('Downloaded picture ',i)
+        
     }
     
     // create pdf with name and number of chapter
-    await pdfApi.callPdf(name, titleNumber)
+    //await pdfApi.callPdf(name, titleNumber)
     //await page.goto(initialUrl, {timeout: TIMEOUT})
 }
 
